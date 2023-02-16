@@ -18,14 +18,37 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
-
 async function run() {
   try {
+    client.connect();
     const usersCollection = client.db("usersCollection").collection("users");
+
     app.post("/addUser", async (req, res) => {
-      const { name } = req.body;
-      const result = await usersCollection.insertOne({ name });
+      const { name, group } = req.body;
+      const result = await usersCollection.insertOne({ name, group });
       res.send(result);
+    });
+
+    app.get("/users", async (req, res) => {
+      const currentPage = req.query.currentPage || 1;
+      const userPerPage = req.query.userPerPage || 6;
+
+      const query = {};
+      const cursor = usersCollection.find(query);
+      const result = await cursor
+        .skip(+currentPage * +userPerPage)
+        .limit(+userPerPage)
+        .toArray();
+      // console.log(result, currentPage, userPerPage);
+
+      res.send({ result });
+    });
+    app.get("/totalUsers", async (req, res) => {
+      const query = {};
+      const cursor = usersCollection.find(query);
+      const result = await cursor.count();
+      console.log(result);
+      res.send({ result });
     });
 
     console.log("mongo is connected", " => Line No: 25");
