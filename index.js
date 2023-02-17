@@ -32,15 +32,15 @@ async function run() {
     app.get("/users", async (req, res) => {
       const currentPage = req.query.currentPage || 1;
       const userPerPage = req.query.userPerPage || 6;
-      const lastUser = req.query.lastUser || false;
+      const lastUsers = req.query.lastUsers || false;
       const totalUsers = req.query.totalUsers || false;
       const query = {};
       let result;
       const cursor = usersCollection.find(query);
-      const count = await cursor.count();
-      if (lastUser) {
+      const count = await usersCollection.estimatedDocumentCount();
+      if (lastUsers) {
         result = await cursor
-          .skip(count - 4)
+          .skip(count >= 4 ? count - 4 : 0)
           .limit(4)
           .toArray();
       } else if (totalUsers) {
@@ -61,11 +61,42 @@ async function run() {
       res.send({ result });
     });
 
-    // app.get("/totalUsers", async (req, res) => {
-    //   const query = {};
+    app.put("/user", async (req, res) => {
+      const user = req.body;
+      const options = { upsert: true };
+      const filter = { _id: new ObjectId(user.body.id) };
+      const updateDoc = {
+        $set: {
+          name: user.body.name,
+          group: user.body.group,
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send({ result });
+    });
 
-    //   res.send({ result });
-    // });
+    app.delete("/user", async (req, res) => {
+      const id = req.query.id;
+      const query = { _id: new ObjectId(id) };
+      let result;
+      const cursor = await usersCollection.deleteOne(query);
+      if (cursor.deletedCount === 1) {
+        result = {
+          deleteMessage: "Successfully deleted one document.",
+          deletedCount: 1,
+        };
+      } else {
+        result = {
+          deleteMessage: "No documents matched the query. Deleted 0 documents.",
+          deletedCount: 0,
+        };
+      }
+      res.send({ result });
+    });
 
     console.log("mongo is connected");
   } finally {
